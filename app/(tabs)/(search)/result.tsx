@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Discover() {
+export default function Result() {
   return (
     <View>
-      <Text>Discover page</Text>
+      <Text>Result page</Text>
     </View>
   );
 }

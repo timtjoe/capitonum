@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Settings() {
+export default function Reader() {
   return (
     <View>
-      <Text>Setting page</Text>
+      <Text>Reader page</Text>
     </View>
   );
 }

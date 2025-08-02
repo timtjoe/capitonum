@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Search() {
+export default function Category() {
   return (
     <View>
-      <Text>Search page</Text>
+      <Text>Category page</Text>
     </View>
   );
 }

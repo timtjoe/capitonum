@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Article() {
+export default function Bookmarks() {
   return (
     <View>
-      <Text>Article page</Text>
+      <Text>Bookmarks page</Text>
     </View>
   );
 }

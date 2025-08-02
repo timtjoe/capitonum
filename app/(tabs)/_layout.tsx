@@ -1,14 +1,46 @@
 import { Tabs } from "expo-router";
-import LineIcons from "@expo/vector-icons/Octicons";
-import { StyleSheet } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
-const homeIcon = require("@/assets/icons/home.svg")
+const Options = (title: string, icon: string) => ({
+  title,
+  tabBarLabel: "",
+  tabBarIcon: ({ focused }: { focused: boolean }) => (
+    <Ionicons
+      name={(focused ? icon?.replace("-outline", "") : icon) as any}
+      size={48}
+      color="black"
+      style={{
+        marginTop: 48,
+        height: 48,
+        width: 48,
+      }}
+    />
+  ),
+});
 
 export default function TabLayout() {
   return (
-    <Tabs>
+    <Tabs
+      screenOptions={{
+        tabBarStyle: {
+          height: 148,
+          borderWidth: 0,
+          elevation: 0,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={Options("Explore", "compass-outline")}
+      />
+      <Tabs.Screen
+        name="(search)"
+        options={Options("Search", "search-outline")}
+      />
+      <Tabs.Screen
+        name="bookmarks"
+        options={Options("Bookmarks", "bookmark-outline")}
+      />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({})
