@@ -1,9 +1,9 @@
 import {StyleSheet, Text, View } from "react-native";
 
-export default function Bookmarks() {
+export default function Search() {
   return (
     <View>
-      <Text>Bookmarks page</Text>
+      <Text>Search page</Text>
     </View>
   );
 }
