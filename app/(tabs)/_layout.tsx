@@ -1,12 +1,10 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Topbar from "@/components/Topbar";
+import Header from "@/components/Header";
 
 const Options = (title: string, icon: string) => ({
   title,
   tabBarLabel: "",
-  header: ({ navigation, route }:any) => ( <Topbar navigation={navigation} route={route} />
-  ),
   tabBarIcon: ({ focused }: { focused: boolean }) => (
     <Ionicons
       name={(focused ? icon?.replace("-outline", "") : icon) as any}
@@ -19,6 +17,7 @@ const Options = (title: string, icon: string) => ({
       }}
     />
   ),
+  header: () => <Header title={title} />,
 });
 
 export default function TabLayout() {
@@ -34,23 +33,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="discover"
-        options={{
-          title: "Discover",
-  tabBarLabel: "",
-  header: ({ navigation, route }:any) => ( <Topbar navigation={navigation} route={route} />
-  ),
-  tabBarIcon: ({ focused }: { focused: boolean }) => (
-    <Ionicons
-      name={(focused ? ("compass")?.replace("-outline", "") : "compass") as any}
-      size={48}
-      color="black"
-      style={{
-        marginTop: 48,
-        height: 48,
-        width: 48,
-      }}
-    />)
-        }}
+        options={Options("Discover", "compass-outline")}
       />
       <Tabs.Screen
         name="search"
