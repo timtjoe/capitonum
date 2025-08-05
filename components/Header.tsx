@@ -1,6 +1,6 @@
 import { Text, View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { Link } from "expo-router";
+import { Link, usePathname } from "expo-router";
 
 const logo = require("@/assets/images/logo.svg");
 
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: "black",
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     flex: 1,
     lineHeight: 28,

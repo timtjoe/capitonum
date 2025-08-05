@@ -8,12 +8,12 @@ const Options = (title: string, icon: string) => ({
   tabBarIcon: ({ focused }: { focused: boolean }) => (
     <Ionicons
       name={(focused ? icon?.replace("-outline", "") : icon) as any}
-      size={48}
+      size={38}
       color="black"
       style={{
-        marginTop: 48,
-        height: 48,
-        width: 48,
+        marginTop: 38,
+        height: 38,
+        width: 38,
       }}
     />
   ),
