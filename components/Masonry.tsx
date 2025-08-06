@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { MockData } from "./MockData";
+import { SAI } from "./SAI";
 
 // Constants
 const NUM_COLUMNS = 2;
@@ -18,6 +19,7 @@ const IMAGE_MAX_HEIGHT = 150;
 
 // Types
 export interface IArticle {
+  [x: string]: any;
   id: string;
   imageUrl?: ImageSourcePropType;
   body: string;
@@ -33,39 +35,7 @@ const estimateItemHeight = (article: IArticle): number => {
   return textHeight + imageHeight + 20; // padding + margin
 };
 
-// Component: Single Article Item
-const ArticleItem = ({ article }: { article: IArticle }) => {
-  const router = useRouter();
 
-  const handlePress = () => {
-    // Navigate to the article reader tab component, passing the article ID as a parameter.
-    // Assuming a route like '/reader' that can handle a dynamic ID.
-    router.push({ pathname: "/reader", params: { id: article.id } });
-  };
-
-  return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.item,
-        {
-          opacity: pressed ? 0.8 : 1,
-        },
-      ]}
-    >
-      {article.imageUrl && (
-        <View style={styles.imageContainer}>
-          <Image
-            source={article.imageUrl}
-            style={styles.image}
-            resizeMode="cover"
-          />
-        </View>
-      )}
-      <Text style={styles.body}>{article.body}</Text>
-    </Pressable>
-  );
-};
 
 // Component: Waterfall Grid
 const Masonry = () => {
@@ -94,7 +64,7 @@ const Masonry = () => {
       {columns.map((column, colIndex) => (
         <View key={`col-${colIndex}`} style={styles.column}>
           {column.map((article) => (
-            <ArticleItem key={article.id} article={article} />
+            <SAI key={article.id} article={article} />
           ))}
         </View>
       ))}
