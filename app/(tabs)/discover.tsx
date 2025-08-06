@@ -1,9 +1,11 @@
+import Chiplist from "@/components/Chiplist";
 import Masonry from "@/components/Masonry";
 import { StatusBar, StyleSheet, Text, View } from "react-native";
 
 export default function Discover() {
   return (
     <View style={styles.view}>
+      <Chiplist />
       <Masonry />
     </View>
   );
