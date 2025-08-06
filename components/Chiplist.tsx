@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 10,
     gap: 8,
+    maxHeight: 100
   },
   chip: {
     backgroundColor: "#fff",

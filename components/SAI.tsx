@@ -1,14 +1,21 @@
+// SAI.tsx
 import { useRouter } from "expo-router";
-import { IArticle } from "./Masonry";
-import { Pressable, View, Image, Text, StyleSheet } from "react-native";
-import { Linking } from "react-native";
+// import { IArticle } from "./Masonry";
+import {
+  Pressable,
+  View,
+  Image,
+  Text,
+  StyleSheet,
+  Linking,
+} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useBookmark } from "@/hooks/useBookmark";
 import { getIconUrl } from "@/hooks/useIcon";
-// import { useBookmark } from "./useBookmark";
+import { IArticle } from "@/app/(tabs)/discover";
 
 const ITEM_MARGIN = 10;
-const WIKIPEDIA_ICON_URL = getIconUrl("wikipedia")
+const WIKIPEDIA_ICON_URL = getIconUrl("wikipedia");
 
 export const SAI = ({ article }: { article: IArticle }) => {
   const router = useRouter();
@@ -38,13 +45,14 @@ export const SAI = ({ article }: { article: IArticle }) => {
       {article.imageUrl && (
         <View style={styles.imageContainer}>
           <Image
-            source={article.imageUrl}
-            style={styles.image}
-            resizeMode="cover"
+            source={article.imageUrl || require("@/assets/images/placeholder.png")}
+            style={{ width: "100%"}}
+            onError={() => {}}
           />
         </View>
       )}
-      <Text style={styles.body} numberOfLines={4} ellipsizeMode="tail">
+
+      <Text style={styles.body} numberOfLines={6} ellipsizeMode="tail">
         {article.body}
       </Text>
 
@@ -57,7 +65,9 @@ export const SAI = ({ article }: { article: IArticle }) => {
             source={{ uri: WIKIPEDIA_ICON_URL }}
             style={styles.wikipediaIcon}
           />
-          <Text style={styles.wikipediaLink}>wiki/{formattedTitle}</Text>
+          <Text style={styles.wikipediaLink} numberOfLines={1}>
+            wiki/{formattedTitle}
+          </Text>
         </Pressable>
 
         <Pressable onPress={handleBookmarkToggle} style={styles.bookmarkButton}>
@@ -105,6 +115,7 @@ const styles = StyleSheet.create({
   wikipediaLinkContainer: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 1,
   },
   wikipediaIcon: {
     width: 18,
@@ -114,6 +125,7 @@ const styles = StyleSheet.create({
   wikipediaLink: {
     fontSize: 12,
     color: "#007AFF",
+    flexShrink: 1,
   },
   bookmarkButton: {
     padding: 5,

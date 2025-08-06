@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IArticle } from "@/components/Masonry";
-
+import { EventEmitter } from "events";
 
 const BOOKMARKS_KEY = "@bookmarks";
+export const bookmarksEmitter = new EventEmitter();
 
 export const useBookmark = (article: IArticle) => {
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -52,6 +53,7 @@ export const useBookmark = (article: IArticle) => {
         JSON.stringify(bookmarkedArticles)
       );
       setIsBookmarked(!isCurrentlyBookmarked);
+      bookmarksEmitter.emit("bookmarksUpdated"); // Emit event on change
     } catch (e) {
       console.error("Failed to save bookmark:", e);
     }
