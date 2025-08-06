@@ -1,21 +1,25 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Header from "@/components/Header";
+import { View, Text, StyleSheet } from "react-native";
 
 const Options = (title: string, icon: string) => ({
   title,
-  tabBarLabel: "",
+  tabBarLabelStyle: styles.label,
+  tabBarActiveLabelStyle: styles.labelFocused,
   tabBarIcon: ({ focused }: { focused: boolean }) => (
-    <Ionicons
-      name={(focused ? icon?.replace("-outline", "") : icon) as any}
-      size={38}
-      color="black"
-      style={{
-        marginTop: 38,
-        height: 38,
-        width: 38,
-      }}
-    />
+    <View style={styles.container}>
+      <Ionicons
+        name={(focused ? icon?.replace("-outline", "") : icon) as any}
+        size={32}
+        color={focused ? "black" : "black"}
+        style={{
+          height: "120%",
+          width: "100%",
+          marginBottom: 4
+        }}
+      />
+    </View>
   ),
   header: () => <Header title={title} />,
 });
@@ -25,9 +29,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          height: 148,
-          borderWidth: 0,
+          height: 110,
           elevation: 0,
+          borderWidth: 0,
+          paddingTop: 8,
         },
       }}
     >
@@ -46,3 +51,18 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  label: {
+    fontSize: 10,
+    color: "black",
+  },
+  labelFocused: {
+    fontWeight: "bold",
+  },
+});
