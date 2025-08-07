@@ -12,7 +12,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useBookmark } from "@/hooks/useBookmark";
 import { getIconUrl } from "@/hooks/useIcon";
-import { IArticle } from "@/app/(tabs)/discover";
+import { IArticle } from "@/app/(tabs)/Discover";
 
 const ITEM_MARGIN = 10;
 const WIKIPEDIA_ICON_URL = getIconUrl("wikipedia");
@@ -45,8 +45,10 @@ export const SAI = ({ article }: { article: IArticle }) => {
       {article.imageUrl && (
         <View style={styles.imageContainer}>
           <Image
-            source={article.imageUrl || require("@/assets/images/placeholder.png")}
-            style={{ width: "100%"}}
+            source={
+              article.imageUrl || require("@/assets/images/placeholder.png")
+            }
+            style={{ width: "100%" }}
             onError={() => {}}
           />
         </View>

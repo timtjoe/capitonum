@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, View, ActivityIndicator } from "react-native";
 import { SAI } from "./SAI";
-import { IArticle } from "@/app/(tabs)/discover";
+import { IArticle } from "@/app/(tabs)/Discover";
 // import { IArticle } from "./Discover";
 
 const ITEM_MARGIN = 10;

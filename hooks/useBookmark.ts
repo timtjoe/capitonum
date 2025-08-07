@@ -61,3 +61,5 @@ export const useBookmark = (article: IArticle) => {
 
   return { isBookmarked, handleBookmarkToggle };
 };
+
+export { IArticle };
