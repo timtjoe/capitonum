@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IArticle } from "@/components/Masonry";
 import { EventEmitter } from "events";
+import { IArticle } from "@/app/(tabs)/Discover";
 
 const BOOKMARKS_KEY = "@bookmarks";
 export const bookmarksEmitter = new EventEmitter();

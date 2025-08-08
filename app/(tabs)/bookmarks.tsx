@@ -1,4 +1,3 @@
-// Bookmarks.tsx  (Android-only)
 import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
@@ -8,10 +7,7 @@ import {
   Pressable,
   Image,
   Animated,
-  LayoutAnimation,
-  UIManager,
   Dimensions,
-  Platform,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IArticle, useBookmark, bookmarksEmitter } from "@/hooks/useBookmark";
@@ -20,24 +16,16 @@ import { openInAppBrowser } from "@/components/Browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getIconUrl } from "@/hooks/useIcon";
 import * as Haptics from "expo-haptics";
+import AnimatedReanimated, {
+  Layout,
+  FadeIn,
+  FadeOut,
+} from "react-native-reanimated";
 
 const WIKIPEDIA_ICON_URL = getIconUrl("wikipedia");
 const BOOKMARKS_KEY = "@bookmarks";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Enable LayoutAnimation on Android (Android-only project)
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-/**
- * Single card: handles the slide+fade-out animation when unbookmarking.
- * After the animation completes it calls handleBookmarkToggle() (hook)
- * and then notifies parent with onRemove(id).
- */
 const MediaBlock = ({
   article,
   onRemove,
@@ -46,10 +34,6 @@ const MediaBlock = ({
   onRemove: (id: string) => void;
 }) => {
   const { isBookmarked, handleBookmarkToggle } = useBookmark(article);
-
-  const translateX = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-
   const formattedTitle = article.title?.replace(/ /g, "_") || "";
   const MAX_TITLE_LENGTH = 15;
   const truncatedTitle =
@@ -62,51 +46,22 @@ const MediaBlock = ({
     openInAppBrowser(`https://en.wikipedia.org/wiki/${formattedTitle}`);
   };
 
-  const animateOutThenRemove = async () => {
-    // visual slide + fade
-    Animated.parallel([
-      Animated.timing(translateX, {
-        toValue: SCREEN_WIDTH, // slide fully out to the right
-        duration: 320,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-    ]).start(async () => {
-      // After the card visually disappears, update storage (hook) and notify parent
-      try {
-        await handleBookmarkToggle(); // updates AsyncStorage and emits bookmarksUpdated
-      } catch (err) {
-        console.error("toggle bookmark failed:", err);
-      } finally {
-        onRemove(article.id);
-      }
-    });
-  };
-
-  const onBookmarkPress = () => {
+  const onBookmarkPress = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // In the bookmarks list the items should be bookmarked; only animate when removing.
     if (isBookmarked) {
-      animateOutThenRemove();
+      await handleBookmarkToggle();
+      onRemove(article.id);
     } else {
-      // If not bookmarked (edge case), just toggle without animation
       handleBookmarkToggle();
     }
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.item,
-        {
-          opacity,
-          transform: [{ translateX }],
-        },
-      ]}
+    <AnimatedReanimated.View
+      entering={FadeIn}
+      exiting={FadeOut.duration(300)} // Ensure FadeOut is called when the component is unmounted
+      layout={Layout.springify()}
+      style={styles.item}
     >
       <Pressable onPress={handleOpen} style={styles.pressableInner}>
         {article.imageUrl && (
@@ -114,14 +69,12 @@ const MediaBlock = ({
             <Image source={article.imageUrl} style={styles.image} />
           </View>
         )}
-
         <View style={styles.contentContainer}>
           <View style={styles.textBlock}>
             <Text style={styles.body} numberOfLines={4} ellipsizeMode="tail">
               {article.body}
             </Text>
           </View>
-
           <View style={styles.footerContainer}>
             <Pressable
               onPress={handleOpen}
@@ -133,7 +86,6 @@ const MediaBlock = ({
               />
               <Text style={styles.wikipediaLink}>wiki/{truncatedTitle}</Text>
             </Pressable>
-
             <Pressable onPress={onBookmarkPress} style={styles.bookmarkButton}>
               <Ionicons
                 name={isBookmarked ? "bookmark" : "bookmark-outline"}
@@ -144,15 +96,10 @@ const MediaBlock = ({
           </View>
         </View>
       </Pressable>
-    </Animated.View>
+    </AnimatedReanimated.View>
   );
 };
 
-/**
- * Bookmarks screen: maintains local array of bookmarked articles.
- * When onRemove(id) is called we use LayoutAnimation to animate the
- * layout change (other cards sliding into place).
- */
 export default function Bookmarks() {
   const [bookmarkedArticles, setBookmarkedArticles] = useState<IArticle[]>([]);
   const isFocused = useIsFocused();
@@ -162,7 +109,7 @@ export default function Bookmarks() {
       const bookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
       if (bookmarks !== null) {
         let articlesToDisplay: IArticle[] = JSON.parse(bookmarks);
-        articlesToDisplay = articlesToDisplay.reverse(); // most recent first
+        articlesToDisplay = articlesToDisplay.reverse();
         setBookmarkedArticles(articlesToDisplay);
       } else {
         setBookmarkedArticles([]);
@@ -180,10 +127,7 @@ export default function Bookmarks() {
     };
   }, [isFocused]);
 
-  // Called by MediaBlock after its exit animation completes.
   const handleRemove = (id: string) => {
-    // Configure a springy layout animation so the following cards slide up naturally.
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     setBookmarkedArticles((prev) => prev.filter((a) => a.id !== id));
   };
 
@@ -211,7 +155,6 @@ export default function Bookmarks() {
 }
 
 const styles = StyleSheet.create({
-  // MediaBlock styles
   item: {
     display: "flex",
     flexDirection: "row",
@@ -251,7 +194,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "700",
   },
-
   footerContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -276,7 +218,6 @@ const styles = StyleSheet.create({
   bookmarkButton: {
     padding: 5,
   },
-  // Bookmarks component styles
   container: {
     padding: 10,
     gap: 10,
