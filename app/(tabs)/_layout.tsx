@@ -37,15 +37,15 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="discover"
+        name="Discover"
         options={Options("Discover", "compass-outline")}
       />
       <Tabs.Screen
-        name="search"
+        name="Search"
         options={Options("Search", "search-outline")}
       />
       <Tabs.Screen
-        name="bookmarks"
+        name="Bookmarks"
         options={Options("Bookmarks", "bookmark-outline")}
       />
     </Tabs>

@@ -1,3 +1,5 @@
+// Bookmarks.tsx  (Android-only)
+import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -5,107 +7,152 @@ import {
   ScrollView,
   Pressable,
   Image,
+  Animated,
+  LayoutAnimation,
+  UIManager,
+  Dimensions,
+  Platform,
 } from "react-native";
-import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IArticle, useBookmark } from "@/hooks/useBookmark"; // Merged and updated import
+import { IArticle, useBookmark, bookmarksEmitter } from "@/hooks/useBookmark";
 import { useIsFocused } from "@react-navigation/native";
-import { bookmarksEmitter } from "@/hooks/useBookmark";
-import { openInAppBrowser } from "@/components/Browser"; // Import the in-app browser function
+import { openInAppBrowser } from "@/components/Browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getIconUrl } from "@/hooks/useIcon";
 import * as Haptics from "expo-haptics";
 
 const WIKIPEDIA_ICON_URL = getIconUrl("wikipedia");
 const BOOKMARKS_KEY = "@bookmarks";
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// The MediaBlock component is now defined within this file
-export const MediaBlock = ({ article }: { article: IArticle }) => {
+// Enable LayoutAnimation on Android (Android-only project)
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+/**
+ * Single card: handles the slide+fade-out animation when unbookmarking.
+ * After the animation completes it calls handleBookmarkToggle() (hook)
+ * and then notifies parent with onRemove(id).
+ */
+const MediaBlock = ({
+  article,
+  onRemove,
+}: {
+  article: IArticle;
+  onRemove: (id: string) => void;
+}) => {
   const { isBookmarked, handleBookmarkToggle } = useBookmark(article);
-  const formattedTitle = article.title?.replace(/ /g, "_") || "";
 
-  // Set the maximum length for the displayed title
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  const formattedTitle = article.title?.replace(/ /g, "_") || "";
   const MAX_TITLE_LENGTH = 15;
   const truncatedTitle =
     formattedTitle.length > MAX_TITLE_LENGTH
       ? formattedTitle.substring(0, MAX_TITLE_LENGTH) + "..."
       : formattedTitle;
 
-  // Updated handler to open the article in the in-app browser
-  const handlePress = () => {
+  const handleOpen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const wikipediaUrl = `https://en.wikipedia.org/wiki/${formattedTitle}`;
-    openInAppBrowser(wikipediaUrl);
+    openInAppBrowser(`https://en.wikipedia.org/wiki/${formattedTitle}`);
   };
 
-  const handleWikipediaPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const wikipediaUrl = `https://en.wikipedia.org/wiki/${formattedTitle}`;
-    openInAppBrowser(wikipediaUrl);
+  const animateOutThenRemove = async () => {
+    // visual slide + fade
+    Animated.parallel([
+      Animated.timing(translateX, {
+        toValue: SCREEN_WIDTH, // slide fully out to the right
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+    ]).start(async () => {
+      // After the card visually disappears, update storage (hook) and notify parent
+      try {
+        await handleBookmarkToggle(); // updates AsyncStorage and emits bookmarksUpdated
+      } catch (err) {
+        console.error("toggle bookmark failed:", err);
+      } finally {
+        onRemove(article.id);
+      }
+    });
   };
 
-  const handleBookmarkClick = () => {
+  const onBookmarkPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    handleBookmarkToggle();
+    // In the bookmarks list the items should be bookmarked; only animate when removing.
+    if (isBookmarked) {
+      animateOutThenRemove();
+    } else {
+      // If not bookmarked (edge case), just toggle without animation
+      handleBookmarkToggle();
+    }
   };
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
+    <Animated.View
+      style={[
         styles.item,
         {
-          opacity: pressed ? 0.8 : 1,
+          opacity,
+          transform: [{ translateX }],
         },
       ]}
     >
-      {/* Image Block */}
-      {article.imageUrl && (
-        <View style={styles.imageContainer}>
-          <Image source={article.imageUrl} style={styles.image} />
-        </View>
-      )}
-      <View style={styles.contentContainer}>
-        {/* Text Block */}
-        <View style={styles.textBlock}>
-          <Text style={styles.body} numberOfLines={4} ellipsizeMode="tail">
-            {article.body}
-          </Text>
-        </View>
+      <Pressable onPress={handleOpen} style={styles.pressableInner}>
+        {article.imageUrl && (
+          <View style={styles.imageContainer}>
+            <Image source={article.imageUrl} style={styles.image} />
+          </View>
+        )}
 
-        {/* Footer Block with Links and Bookmark Icon */}
-        <View style={styles.footerContainer}>
-          <Pressable
-            onPress={handleWikipediaPress}
-            style={styles.wikipediaLinkContainer}
-          >
-            <Image
-              source={{ uri: WIKIPEDIA_ICON_URL }}
-              style={styles.wikipediaIcon}
-            />
-            {/* Display the truncated title */}
-            <Text style={styles.wikipediaLink}>wiki/{truncatedTitle}</Text>
-          </Pressable>
+        <View style={styles.contentContainer}>
+          <View style={styles.textBlock}>
+            <Text style={styles.body} numberOfLines={4} ellipsizeMode="tail">
+              {article.body}
+            </Text>
+          </View>
 
-          <Pressable
-            onPress={handleBookmarkClick}
-            style={styles.bookmarkButton}
-          >
-            <Ionicons
-              name={isBookmarked ? "bookmark" : "bookmark-outline"}
-              size={20}
-              color={isBookmarked ? "#007AFF" : "#666"}
-            />
-          </Pressable>
+          <View style={styles.footerContainer}>
+            <Pressable
+              onPress={handleOpen}
+              style={styles.wikipediaLinkContainer}
+            >
+              <Image
+                source={{ uri: WIKIPEDIA_ICON_URL }}
+                style={styles.wikipediaIcon}
+              />
+              <Text style={styles.wikipediaLink}>wiki/{truncatedTitle}</Text>
+            </Pressable>
+
+            <Pressable onPress={onBookmarkPress} style={styles.bookmarkButton}>
+              <Ionicons
+                name={isBookmarked ? "bookmark" : "bookmark-outline"}
+                size={20}
+                color={isBookmarked ? "#007AFF" : "#666"}
+              />
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 };
 
-// ... (rest of the file remains unchanged)
-
-// The Bookmarks component remains as the default export
+/**
+ * Bookmarks screen: maintains local array of bookmarked articles.
+ * When onRemove(id) is called we use LayoutAnimation to animate the
+ * layout change (other cards sliding into place).
+ */
 export default function Bookmarks() {
   const [bookmarkedArticles, setBookmarkedArticles] = useState<IArticle[]>([]);
   const isFocused = useIsFocused();
@@ -115,9 +162,10 @@ export default function Bookmarks() {
       const bookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
       if (bookmarks !== null) {
         let articlesToDisplay: IArticle[] = JSON.parse(bookmarks);
-        // Reverse the array to show the most recent article first
-        articlesToDisplay = articlesToDisplay.reverse();
+        articlesToDisplay = articlesToDisplay.reverse(); // most recent first
         setBookmarkedArticles(articlesToDisplay);
+      } else {
+        setBookmarkedArticles([]);
       }
     } catch (e) {
       console.error("Failed to load bookmarks:", e);
@@ -125,14 +173,19 @@ export default function Bookmarks() {
   };
 
   useEffect(() => {
-    if (isFocused) {
-      loadBookmarks();
-    }
+    if (isFocused) loadBookmarks();
     bookmarksEmitter.on("bookmarksUpdated", loadBookmarks);
     return () => {
       bookmarksEmitter.off("bookmarksUpdated", loadBookmarks);
     };
   }, [isFocused]);
+
+  // Called by MediaBlock after its exit animation completes.
+  const handleRemove = (id: string) => {
+    // Configure a springy layout animation so the following cards slide up naturally.
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+    setBookmarkedArticles((prev) => prev.filter((a) => a.id !== id));
+  };
 
   if (bookmarkedArticles.length === 0) {
     return (
@@ -147,7 +200,11 @@ export default function Bookmarks() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {bookmarkedArticles.map((article) => (
-        <MediaBlock key={article.id} article={article} />
+        <MediaBlock
+          key={article.id}
+          article={article}
+          onRemove={handleRemove}
+        />
       ))}
     </ScrollView>
   );
@@ -163,6 +220,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     overflow: "hidden",
     maxHeight: 120,
+    marginBottom: 10,
+  },
+  pressableInner: {
+    flexDirection: "row",
+    flex: 1,
   },
   imageContainer: {
     width: 108,
