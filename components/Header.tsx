@@ -11,9 +11,9 @@ type Props = {
 export default function Header({ title = "Capitonum" }: Props) {
   return (
     <View style={styles.container}>
-      <Link href={"/discover"} style={styles.imgContainer}>
+      <View style={styles.imgContainer}>
         <Image style={styles.image} source={logo} />
-      </Link>
+      </View>
       <Text style={styles.text}>{title}</Text>
     </View>
   );

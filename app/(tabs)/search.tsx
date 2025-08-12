@@ -15,63 +15,90 @@ import { openInAppBrowser } from "@/components/Browser";
 
 // --- Constants
 const CATEGORIES = [
+  "Paradox",
+  "Philosophy",
+  "Problem",
+  "Algorithm",
+  "Methodology",
+  "Strategy",
+  "Principle",
   "Science",
   "Technology",
-  "Art",
   "History",
-  "Nature",
-  "Sports",
-  "Politics",
-  "Culture",
+  "Mathematics",
+  "Physics",
+  "Biology",
+  "Psychology",
+  "Sociology",
+  "Economics",
+  "Logic",
+  "Engineering",
 ];
 
 const WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php";
-const SEARCH_DEBOUNCE_DELAY = 300;
 
 // --- Fetching data from Wikipedia
 const FetchResults = async (query: string) => {
-  if (!query) return [];
+  if (!query) return { data: [] };
 
   try {
     // Step 1: Use opensearch to get a list of titles and URLs.
     const searchResponse = await fetch(
       `${WIKIPEDIA_API_URL}?action=opensearch&search=${query}&limit=10&format=json&origin=*`
     );
+
+    // ERROR HANDLING: Explicitly check for non-200 status codes.
+    if (!searchResponse.ok) {
+      throw new Error(`HTTP error! status: ${searchResponse.status}`);
+    }
+
     const searchData = await searchResponse.json();
     const titles = searchData[1] || [];
     const links = searchData[3] || [];
 
     if (titles.length === 0) {
-      return [];
+      return { data: [] };
     }
 
     // Step 2: Use the titles to get the introductory text for each page.
-    // We join the titles with '|' for a single API call.
     const titlesString = titles.join("|");
     const queryResponse = await fetch(
       `${WIKIPEDIA_API_URL}?action=query&prop=extracts&exlimit=10&exintro=1&explaintext=1&titles=${titlesString}&format=json&origin=*`
     );
+
+    // ERROR HANDLING: Explicitly check for non-200 status codes.
+    if (!queryResponse.ok) {
+      throw new Error(`HTTP error! status: ${queryResponse.status}`);
+    }
+
     const queryData = await queryResponse.json();
+
+    // ERROR HANDLING: Check for a valid data structure.
+    if (!queryData.query || !queryData.query.pages) {
+      throw new Error("Invalid API response format.");
+    }
+
     const pages = queryData.query.pages;
 
     // Step 3: Combine the results from both API calls.
-    const results = Object.values(pages).map((page: any, index: number) => {
-      // Find the corresponding URL from the opensearch results using the title
+    const results = Object.values(pages).map((page: any) => {
       const pageIndex = titles.indexOf(page.title);
       const url = pageIndex !== -1 ? links[pageIndex] : null;
 
       return {
         title: page.title,
-        // The introductory text is in the 'extract' property
         body: page.extract || "No introductory text available.",
         url: url,
       };
     });
 
-    return results;
+    return { data: results };
   } catch (error) {
     console.error("Failed to fetch Wikipedia data:", error);
-    return [];
+    // Return a specific error message for UI display.
+    return {
+      error: "Failed to load data. Please check your network connection.",
+    };
   }
 };
 
@@ -107,37 +134,54 @@ export default function Search() {
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  // NEW STATE: Store error messages here.
+  const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
+  const performSearch = useCallback(async (query: string) => {
+    setIsLoading(true);
+    setError(null); // Clear any previous errors
+    const response = await FetchResults(query);
+
+    if (response.error) {
+      setResults([]);
+      setError(response.error);
+    } else {
+      setResults(response.data);
+    }
+    setIsLoading(false);
+  }, []);
+
   const debouncedSearch = useRef(
-    useCallback((query: string) => {
-      if (query.length > 2) {
-        setIsLoading(true);
-        FetchResults(query).then((data) => {
-          setResults(data);
+    useCallback(
+      (query: string) => {
+        if (query.length > 2) {
+          setIsSearching(true);
+          performSearch(query);
+        } else {
+          setResults([]);
           setIsLoading(false);
-        });
-      } else {
-        setResults([]);
-        setIsLoading(false);
-      }
-    }, [])
+          setIsSearching(false);
+          setError(null);
+        }
+      },
+      [performSearch]
+    )
   ).current;
 
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
-    setIsSearching(true);
     debouncedSearch(text);
   };
 
-  const handleSearchSubmit = useCallback(async (query: string) => {
-    Keyboard.dismiss();
-    setIsLoading(true);
-    setIsSearching(false);
-    const data = await FetchResults(query);
-    setResults(data);
-    setIsLoading(false);
-  }, []);
+  const handleSearchSubmit = useCallback(
+    async (query: string) => {
+      Keyboard.dismiss();
+      setIsSearching(false);
+      performSearch(query);
+    },
+    [performSearch]
+  );
 
   const handleItemPress = (item: string) => {
     setSearchQuery(item);
@@ -148,11 +192,27 @@ export default function Search() {
     openInAppBrowser(url);
   }, []);
 
+  // RENDER FUNCTION: Now includes logic for the error state.
   const renderContent = () => {
     if (isLoading) {
       return (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="black" />
+        </View>
+      );
+    }
+
+    // NEW LOGIC: Show error message and a "Try Again" button.
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            onPress={() => handleSearchSubmit(searchQuery)}
+            style={styles.tryAgainButton}
+          >
+            <Text style={styles.tryAgainText}>Try Again</Text>
+          </Pressable>
         </View>
       );
     }
@@ -160,7 +220,6 @@ export default function Search() {
     if (isSearching && results.length > 0) {
       return (
         <>
-          <Text style={styles.listHeader}>Suggestions</Text>
           {results.map((item, index) => (
             <Pressable
               key={index}
@@ -178,8 +237,8 @@ export default function Search() {
       return (
         <>
           <Text style={styles.listHeader}>
-            <Text style={styles.searchPrompt}>Showing results for: </Text>
-            {searchQuery}
+            <Text style={styles.searchPrompt}>Showing results for: </Text>"
+            {searchQuery}"
           </Text>
           {results.map((article, index) => (
             <ArticleResult
@@ -192,6 +251,7 @@ export default function Search() {
       );
     }
 
+    // NEW LOGIC: More user-friendly "no results" message.
     if (searchQuery.length > 2 && !isLoading && !isSearching) {
       return (
         <Text style={styles.noResultsText}>
@@ -237,7 +297,7 @@ export default function Search() {
           style={styles.searchButton}
           onPress={() => handleSearchSubmit(searchQuery)}
         >
-          <Ionicons name="search" size={20} color="#888" />
+          <Ionicons name="search" size={22} color="black" />
         </Pressable>
       </View>
 
@@ -253,35 +313,35 @@ export default function Search() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "blue"
+    flex: 1,
+    backgroundColor: "#e6e7e7ff",
   },
   searchFormContainer: {
-    flexDirection: "column",
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "white",
-    height: 100,
-    borderRadius: 12,
-    fontSize: 12,
+    borderRadius: 50,
+    margin: 10,
+    paddingRight: 15,
   },
   searchInputWrapper: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "transparent",
-    height: 100,
+    padding: 15,
   },
   searchInput: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 16,
     color: "black",
-    marginLeft: 10,
-    height: 100,
+    fontWeight: "bold",
   },
   searchButton: {
     backgroundColor: "transparent",
     borderRadius: 35,
-    height: 38,
-    width: 38,
+    height: 48,
+    width: 48,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -293,8 +353,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "black",
-    marginTop: 10,
-    marginBottom: 5,
+    marginVertical: 15,
   },
   searchPrompt: {
     color: "#888",
@@ -342,5 +401,29 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
     color: "#888",
+  },
+  // NEW STYLES: For the error message container and button
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 200,
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "red",
+    marginBottom: 15,
+  },
+  tryAgainButton: {
+    backgroundColor: "black",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tryAgainText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
