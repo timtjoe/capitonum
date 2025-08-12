@@ -16,6 +16,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Fontisto from "@expo/vector-icons/Fontisto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import Octicons from "@expo/vector-icons/Octicons";
+import EvilIcons from "@expo/vector-icons/EvilIcons";
 
 import { useRefresh } from "@/hooks/useRefresh";
 import { useBookmark } from "@/hooks/useBookmark";
@@ -183,7 +185,7 @@ const ArticleItem = React.memo(({ article }: { article: IArticle }) => {
 
       <View style={styles.footer}>
         <Pressable onPress={onShare} style={styles.iconButton}>
-          <Fontisto name="share-a" size={16} color="black" />
+          <Ionicons name="share-outline" size={18} color="#666" />
         </Pressable>
         <Pressable onPress={onBookmarkPress} style={styles.iconButton}>
           <Ionicons
@@ -558,8 +560,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 15,
     paddingVertical: 10,
+    paddingRight: 50,
     gap: 8,
-    maxHeight: 100,
+    height: 50,
   },
   chip: {
     backgroundColor: "#fff",
@@ -656,7 +659,7 @@ const styles = StyleSheet.create({
   skeletonItem: {
     width: "48%",
     height: 250,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#DADCE0",
     borderRadius: 15,
     marginBottom: ITEM_MARGIN,
     overflow: "hidden",
@@ -664,14 +667,14 @@ const styles = StyleSheet.create({
   skeletonImage: {
     width: "100%",
     height: 120,
-    backgroundColor: "#c5c5c5",
+    backgroundColor: "#c9cacaff",
   },
   skeletonTextContainer: {
     padding: 10,
   },
   skeletonText: {
     height: 12,
-    backgroundColor: "#c5c5c5",
+    backgroundColor: "#c9cacaff",
     marginBottom: 8,
     borderRadius: 4,
   },
@@ -737,10 +740,10 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     backgroundColor: "black",
-    borderRadius: 20,
+    borderRadius: 17,
     padding: 10,
-    marginTop: 15,
-    minWidth: 100,
+    marginTop: 30,
+    minWidth: "100%",
     alignItems: "center",
   },
   closeButtonText: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,7 +8,6 @@ import {
   ScrollView,
   Keyboard,
   ActivityIndicator,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -30,21 +29,50 @@ const WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php";
 const SEARCH_DEBOUNCE_DELAY = 300;
 
 // --- Fetching data from Wikipedia
-const fetchWikiSearchResults = async (query: string) => {
+const FetchResults = async (query: string) => {
   if (!query) return [];
-  const response = await fetch(
-    `${WIKIPEDIA_API_URL}?action=opensearch&search=${query}&limit=10&format=json&origin=*`
-  );
-  const data = await response.json();
-  const titles = data[1] || [];
-  const descriptions = data[2] || [];
-  const links = data[3] || [];
 
-  return titles.map((title: string, index: number) => ({
-    title,
-    body: descriptions[index] || "No description available.",
-    url: links[index],
-  }));
+  try {
+    // Step 1: Use opensearch to get a list of titles and URLs.
+    const searchResponse = await fetch(
+      `${WIKIPEDIA_API_URL}?action=opensearch&search=${query}&limit=10&format=json&origin=*`
+    );
+    const searchData = await searchResponse.json();
+    const titles = searchData[1] || [];
+    const links = searchData[3] || [];
+
+    if (titles.length === 0) {
+      return [];
+    }
+
+    // Step 2: Use the titles to get the introductory text for each page.
+    // We join the titles with '|' for a single API call.
+    const titlesString = titles.join("|");
+    const queryResponse = await fetch(
+      `${WIKIPEDIA_API_URL}?action=query&prop=extracts&exlimit=10&exintro=1&explaintext=1&titles=${titlesString}&format=json&origin=*`
+    );
+    const queryData = await queryResponse.json();
+    const pages = queryData.query.pages;
+
+    // Step 3: Combine the results from both API calls.
+    const results = Object.values(pages).map((page: any, index: number) => {
+      // Find the corresponding URL from the opensearch results using the title
+      const pageIndex = titles.indexOf(page.title);
+      const url = pageIndex !== -1 ? links[pageIndex] : null;
+
+      return {
+        title: page.title,
+        // The introductory text is in the 'extract' property
+        body: page.extract || "No introductory text available.",
+        url: url,
+      };
+    });
+
+    return results;
+  } catch (error) {
+    console.error("Failed to fetch Wikipedia data:", error);
+    return [];
+  }
 };
 
 // --- Article Result Component
@@ -78,15 +106,14 @@ export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSearching, setIsSearching] = useState(false); // New state to differentiate
+  const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
 
-  // Debounced search function to reduce API calls
   const debouncedSearch = useRef(
     useCallback((query: string) => {
       if (query.length > 2) {
         setIsLoading(true);
-        fetchWikiSearchResults(query).then((data) => {
+        FetchResults(query).then((data) => {
           setResults(data);
           setIsLoading(false);
         });
@@ -97,24 +124,21 @@ export default function Search() {
     }, [])
   ).current;
 
-  // Handles text input change
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     setIsSearching(true);
     debouncedSearch(text);
   };
 
-  // Handles search submission (e.g., from button or 'Enter')
   const handleSearchSubmit = useCallback(async (query: string) => {
     Keyboard.dismiss();
     setIsLoading(true);
     setIsSearching(false);
-    const data = await fetchWikiSearchResults(query);
+    const data = await FetchResults(query);
     setResults(data);
     setIsLoading(false);
   }, []);
 
-  // Handles category or suggestion press
   const handleItemPress = (item: string) => {
     setSearchQuery(item);
     handleSearchSubmit(item);
@@ -124,7 +148,6 @@ export default function Search() {
     openInAppBrowser(url);
   }, []);
 
-  // Render content based on state
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -154,7 +177,10 @@ export default function Search() {
     if (results.length > 0) {
       return (
         <>
-          <Text style={styles.listHeader}>Search Results</Text>
+          <Text style={styles.listHeader}>
+            <Text style={styles.searchPrompt}>Showing results for: </Text>
+            {searchQuery}
+          </Text>
           {results.map((article, index) => (
             <ArticleResult
               key={index}
@@ -193,19 +219,13 @@ export default function Search() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
       <View style={styles.searchFormContainer}>
         <View style={styles.searchInputWrapper}>
-          <Ionicons
-            name="search"
-            size={20}
-            color="#888"
-            style={styles.searchIcon}
-          />
           <TextInput
             ref={searchInputRef}
             style={styles.searchInput}
-            placeholder="Search Wikipedia"
+            placeholder="What do you want to know?"
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={handleSearchChange}
@@ -217,7 +237,7 @@ export default function Search() {
           style={styles.searchButton}
           onPress={() => handleSearchSubmit(searchQuery)}
         >
-          <Ionicons name="send-outline" size={20} color="#fff" />
+          <Ionicons name="search" size={20} color="#888" />
         </Pressable>
       </View>
 
@@ -227,99 +247,87 @@ export default function Search() {
       >
         {renderContent()}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
+  container: {
+    backgroundColor: "blue"
   },
   searchFormContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    backgroundColor: "white",
+    height: 100,
+    borderRadius: 12,
+    fontSize: 12,
   },
   searchInputWrapper: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    marginRight: 10,
-    height: 50,
-  },
-  searchIcon: {
-    marginRight: 10,
+    backgroundColor: "transparent",
+    height: 100,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: "#333",
+    fontSize: 12,
+    color: "black",
+    marginLeft: 10,
+    height: 100,
   },
   searchButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 25,
-    height: 50,
-    width: 50,
+    backgroundColor: "transparent",
+    borderRadius: 35,
+    height: 38,
+    width: 38,
     justifyContent: "center",
     alignItems: "center",
   },
   contentContainer: {
     flex: 1,
-    padding: 10,
+    paddingHorizontal: 15,
   },
   listHeader: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "black",
     marginTop: 10,
     marginBottom: 5,
-    paddingHorizontal: 5,
+  },
+  searchPrompt: {
+    color: "#888",
   },
   categoryItem: {
-    padding: 15,
-    backgroundColor: "#e8e8e8",
-    borderRadius: 10,
-    marginBottom: 10,
+    backgroundColor: "transparent",
+    marginVertical: 8,
   },
   categoryText: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 12,
+    color: "black",
   },
   suggestionItem: {
-    paddingVertical: 15,
-    paddingHorizontal: 5,
-    borderBottomWidth: 1,
     borderBottomColor: "#eee",
+    paddingVertical: 8,
   },
   suggestionText: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 12,
+    color: "black",
   },
   articleContainer: {
-    padding: 15,
+    padding: 10,
     backgroundColor: "#fff",
-    borderRadius: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginBottom: 10,
+    marginBottom: 8,
+    borderRadius: 8,
   },
   articleTitle: {
-    fontSize: 20,
+    fontSize: 12,
     fontWeight: "bold",
     marginBottom: 5,
   },
   articleBody: {
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 20,
     color: "#555",
   },

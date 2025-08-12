@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,8 +6,6 @@ import {
   ScrollView,
   Pressable,
   Image,
-  Animated,
-  Dimensions,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IArticle, useBookmark, bookmarksEmitter } from "@/hooks/useBookmark";
@@ -17,14 +15,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { getIconUrl } from "@/hooks/useIcon";
 import * as Haptics from "expo-haptics";
 import AnimatedReanimated, {
-  Layout,
   FadeIn,
   FadeOut,
+  LinearTransition,
 } from "react-native-reanimated";
 
 const WIKIPEDIA_ICON_URL = getIconUrl("wikipedia");
 const BOOKMARKS_KEY = "@bookmarks";
-const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const MediaBlock = ({
   article,
@@ -60,7 +57,7 @@ const MediaBlock = ({
     <AnimatedReanimated.View
       entering={FadeIn}
       exiting={FadeOut.duration(300)} // Ensure FadeOut is called when the component is unmounted
-      layout={Layout.springify()}
+      layout={LinearTransition.springify()}
       style={styles.item}
     >
       <Pressable onPress={handleOpen} style={styles.pressableInner}>
@@ -90,7 +87,7 @@ const MediaBlock = ({
               <Ionicons
                 name={isBookmarked ? "bookmark" : "bookmark-outline"}
                 size={20}
-                color={isBookmarked ? "#007AFF" : "#666"}
+                color={isBookmarked ? "black" : "black"}
               />
             </Pressable>
           </View>
@@ -163,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     overflow: "hidden",
     maxHeight: 120,
-    marginBottom: 10,
+    marginBottom: 5,
   },
   pressableInner: {
     flexDirection: "row",
@@ -213,14 +210,15 @@ const styles = StyleSheet.create({
   },
   wikipediaLink: {
     fontSize: 12,
-    color: "#007AFF",
+    color: "black",
   },
   bookmarkButton: {
     padding: 5,
   },
   container: {
-    padding: 10,
-    gap: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    gap: 5,
   },
   emptyContainer: {
     flex: 1,
