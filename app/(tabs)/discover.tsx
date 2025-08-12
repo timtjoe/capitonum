@@ -10,10 +10,10 @@ import {
   ActivityIndicator,
   Share,
   Modal,
+  Animated,
 } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Fontisto from "@expo/vector-icons/Fontisto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import Octicons from "@expo/vector-icons/Octicons";
@@ -21,7 +21,7 @@ import EvilIcons from "@expo/vector-icons/EvilIcons";
 
 import { useRefresh } from "@/hooks/useRefresh";
 import { useBookmark } from "@/hooks/useBookmark";
-import { openInAppBrowser } from "@/components/Browser"; // Import the in-app browser function
+import { openInAppBrowser } from "@/components/Browser";
 
 // --- Constants
 const NUM_COLUMNS = 2;
@@ -30,7 +30,6 @@ const ITEM_MARGIN = 10;
 const ICON_SIZE = 18;
 const WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php";
 
-// All possible categories, including the default "For You"
 const ALL_CATEGORIES = [
   { id: "0", title: "For You" },
   { id: "1", title: "Paradox" },
@@ -63,7 +62,6 @@ export interface IArticle {
 
 const CATEGORIES_STORAGE_KEY = "@user_categories";
 
-// --- Filtering function to ensure articles have a title, image, and body
 const filterValidArticles = (articles: IArticle[]): IArticle[] => {
   return articles.filter(
     (article) =>
@@ -74,11 +72,11 @@ const filterValidArticles = (articles: IArticle[]): IArticle[] => {
   );
 };
 
-// --- Fetch Wikipedia articles by category
+// REFACTORED: Add better error handling to the fetch function
 const fetchArticlesForCategory = async (
   query: string,
   limit: number
-): Promise<IArticle[]> => {
+): Promise<{ data?: IArticle[]; error?: string }> => {
   try {
     if (query === "For You") {
       const response = await fetch(
@@ -86,9 +84,16 @@ const fetchArticlesForCategory = async (
           limit * 2
         }&prop=pageimages%7Cextracts&exintro=&explaintext=&pithumbsize=200&origin=*`
       );
+
+      if (!response.ok) {
+        return {
+          error: "Failed to load 'For You' articles. Please try again.",
+        };
+      }
+
       const data = await response.json();
       const pages = data?.query?.pages;
-      if (!pages) return [];
+      if (!pages) return { data: [] };
 
       const fetchedArticles = Object.values(pages).map((page: any) => ({
         id: page.pageid.toString(),
@@ -96,23 +101,35 @@ const fetchArticlesForCategory = async (
         body: page.extract,
         imageUrl: page.thumbnail ? { uri: page.thumbnail.source } : undefined,
       }));
-      return filterValidArticles(fetchedArticles);
+      return { data: filterValidArticles(fetchedArticles) };
     }
 
     const response = await fetch(
       `${WIKIPEDIA_API_URL}?action=query&format=json&list=search&srsearch=${query}&srlimit=${limit}&prop=pageimages%7Cextracts&exintro=&explaintext=&pithumbsize=200&origin=*`
     );
+
+    if (!response.ok) {
+      return { error: `Failed to load articles for '${query}'.` };
+    }
+
     const data = await response.json();
     const searchResults = data?.query?.search;
-    if (!searchResults) return [];
+    if (!searchResults) return { data: [] };
 
     const pageIds = searchResults.map((result: any) => result.pageid).join("|");
     const detailsResponse = await fetch(
       `${WIKIPEDIA_API_URL}?action=query&format=json&pageids=${pageIds}&prop=pageimages%7Cextracts&exintro=&explaintext=&pithumbsize=200&origin=*`
     );
+
+    if (!detailsResponse.ok) {
+      return {
+        error: `Failed to get details for articles related to '${query}'.`,
+      };
+    }
+
     const detailsData = await detailsResponse.json();
     const pages = detailsData?.query?.pages;
-    if (!pages) return [];
+    if (!pages) return { data: [] };
 
     const fetchedArticles = Object.values(pages).map((page: any) => ({
       id: page.pageid.toString(),
@@ -120,84 +137,92 @@ const fetchArticlesForCategory = async (
       body: page.extract,
       imageUrl: page.thumbnail ? { uri: page.thumbnail.source } : undefined,
     }));
-    return filterValidArticles(fetchedArticles);
+    return { data: filterValidArticles(fetchedArticles) };
   } catch (error) {
-    if (error instanceof Error) {
-      console.error("Fetch failed:", error.message);
-    } else {
-      console.error("Fetch failed with unknown error:", error);
-    }
-    return [];
+    console.error("Fetch failed:", error);
+    return { error: "Network error. Please check your connection." };
   }
 };
 
 // --- Single Article Item (SAI)
-const ArticleItem = React.memo(({ article }: { article: IArticle }) => {
-  const { isBookmarked, handleBookmarkToggle } = useBookmark(article);
+// REFACTORED: Add `onBookmarkCallback` to provide feedback to the parent
+const ArticleItem = React.memo(
+  ({
+    article,
+    onBookmarkCallback,
+  }: {
+    article: IArticle;
+    onBookmarkCallback: (isAdding: boolean) => void;
+  }) => {
+    const { isBookmarked, handleBookmarkToggle } = useBookmark(
+      article,
+      onBookmarkCallback
+    );
 
-  const onBookmarkPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    handleBookmarkToggle();
-  };
+    const onBookmarkPress = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      handleBookmarkToggle();
+    };
 
-  const onShare = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const formattedTitle = article.title?.replace(/ /g, "_") || "";
-    const wikipediaUrl = `https://en.wikipedia.org/wiki/${formattedTitle}`;
-    try {
-      await Share.share({
-        message: `Check out this Wikipedia article: ${wikipediaUrl}`,
-        url: wikipediaUrl,
-        title: article.title,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Failed to share:", error.message);
-      } else {
-        console.error("Failed to share with unknown error:", error);
+    const onShare = async () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const formattedTitle = article.title?.replace(/ /g, "_") || "";
+      const wikipediaUrl = `https://en.wikipedia.org/wiki/${formattedTitle}`;
+      try {
+        await Share.share({
+          message: `Check out this Wikipedia article: ${wikipediaUrl}`,
+          url: wikipediaUrl,
+          title: article.title,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          console.error("Failed to share:", error.message);
+        } else {
+          console.error("Failed to share with unknown error:", error);
+        }
       }
-    }
-  };
+    };
 
-  const openArticleInBrowser = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const formattedTitle = article.title?.replace(/ /g, "_") || "";
-    const wikipediaUrl = `https://en.wikipedia.org/wiki/${formattedTitle}`;
-    openInAppBrowser(wikipediaUrl);
-  };
+    const openArticleInBrowser = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const formattedTitle = article.title?.replace(/ /g, "_") || "";
+      const wikipediaUrl = `https://en.wikipedia.org/wiki/${formattedTitle}`;
+      openInAppBrowser(wikipediaUrl);
+    };
 
-  return (
-    <Pressable
-      onPress={openArticleInBrowser}
-      style={({ pressed }) => [
-        styles.article,
-        { opacity: pressed ? 0.8 : 1, marginBottom: ITEM_MARGIN },
-      ]}
-    >
-      {article.imageUrl && (
-        <View style={styles.cover}>
-          <Image source={article.imageUrl} style={styles.image} />
+    return (
+      <Pressable
+        onPress={openArticleInBrowser}
+        style={({ pressed }) => [
+          styles.article,
+          { opacity: pressed ? 0.8 : 1, marginBottom: ITEM_MARGIN },
+        ]}
+      >
+        {article.imageUrl && (
+          <View style={styles.cover}>
+            <Image source={article.imageUrl} style={styles.image} />
+          </View>
+        )}
+        <Text style={styles.body} numberOfLines={6} ellipsizeMode="tail">
+          {article.body}
+        </Text>
+
+        <View style={styles.footer}>
+          <Pressable onPress={onShare} style={styles.iconButton}>
+            <Ionicons name="share-outline" size={18} color="#666" />
+          </Pressable>
+          <Pressable onPress={onBookmarkPress} style={styles.iconButton}>
+            <Ionicons
+              name={isBookmarked ? "bookmark" : "bookmark-outline"}
+              size={ICON_SIZE}
+              color={isBookmarked ? "black" : "#666"}
+            />
+          </Pressable>
         </View>
-      )}
-      <Text style={styles.body} numberOfLines={6} ellipsizeMode="tail">
-        {article.body}
-      </Text>
-
-      <View style={styles.footer}>
-        <Pressable onPress={onShare} style={styles.iconButton}>
-          <Ionicons name="share-outline" size={18} color="#666" />
-        </Pressable>
-        <Pressable onPress={onBookmarkPress} style={styles.iconButton}>
-          <Ionicons
-            name={isBookmarked ? "bookmark" : "bookmark-outline"}
-            size={ICON_SIZE}
-            color={isBookmarked ? "black" : "#666"}
-          />
-        </Pressable>
-      </View>
-    </Pressable>
-  );
-});
+      </Pressable>
+    );
+  }
+);
 
 // --- Custom Skeleton Loader Component
 const SkeletonLoader = () => (
@@ -225,20 +250,50 @@ const Discover = () => {
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   const [articleIds, setArticleIds] = useState(new Set<string>());
   const [userCategories, setUserCategories] = useState(
-    ALL_CATEGORIES.slice(0, 5) // Default categories
+    ALL_CATEGORIES.slice(0, 5)
   );
   const [modalVisible, setModalVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null); // NEW: Error state
   const isFocused = useIsFocused();
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // NEW: Feedback state and animation
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const feedbackAnim = useRef(new Animated.Value(0)).current;
+
+  const handleBookmarkFeedback = (isAdding: boolean) => {
+    setFeedbackMessage(isAdding ? "Article Bookmarked!" : "Bookmark Removed.");
+    setShowFeedback(true);
+    Animated.timing(feedbackAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(feedbackAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setShowFeedback(false));
+      }, 1500);
+    });
+  };
+
   const loadDataForRefresh = async () => {
-    const fetched = await fetchArticlesForCategory(
+    setError(null);
+    const response = await fetchArticlesForCategory(
       userCategories.find((c) => c.id === activeChip)?.title || "For You",
       FETCH_LIMIT * 2
     );
-    let newArticles = fetched.filter((article) => !articleIds.has(article.id));
 
-    // Ensure an even number of articles for a balanced layout
+    if (response.error) {
+      setError(response.error);
+      return;
+    }
+
+    const fetched = response.data || [];
+    let newArticles = fetched.filter((article) => !articleIds.has(article.id));
     if (newArticles.length % 2 !== 0) {
       newArticles.pop();
     }
@@ -259,8 +314,6 @@ const Discover = () => {
 
   function distributeEvenly(articles: IArticle[]) {
     let newArticles = articles.filter((article) => !articleIds.has(article.id));
-
-    // Ensure an even number of new articles for a balanced layout
     if (newArticles.length % 2 !== 0) {
       newArticles.pop();
     }
@@ -277,10 +330,19 @@ const Discover = () => {
 
   async function loadInitialData(query: string) {
     setIsLoadingInitial(true);
-    const fetched = await fetchArticlesForCategory(query, FETCH_LIMIT * 3);
-    let newArticles = fetched.filter((article) => !articleIds.has(article.id));
+    setError(null); // Clear errors on new data load
 
-    // Ensure an even number of new articles for a balanced layout
+    const response = await fetchArticlesForCategory(query, FETCH_LIMIT * 3);
+
+    if (response.error) {
+      setColumns([[], []]);
+      setError(response.error);
+      setIsLoadingInitial(false);
+      return;
+    }
+
+    const fetched = response.data || [];
+    let newArticles = fetched.filter((article) => !articleIds.has(article.id));
     if (newArticles.length % 2 !== 0) {
       newArticles.pop();
     }
@@ -292,6 +354,7 @@ const Discover = () => {
       setColumns([newArticles.slice(0, half), newArticles.slice(half)]);
     } else {
       setColumns([[], []]);
+      // Optional: set a "no results" error if desired
     }
     setIsLoadingInitial(false);
   }
@@ -299,11 +362,20 @@ const Discover = () => {
   async function loadMoreData() {
     if (isLoadingMore) return;
     setIsLoadingMore(true);
-    const fetched = await fetchArticlesForCategory(
+    setError(null);
+
+    const response = await fetchArticlesForCategory(
       userCategories.find((c) => c.id === activeChip)?.title || "For You",
       FETCH_LIMIT
     );
-    distributeEvenly(fetched);
+
+    if (response.error) {
+      setError(response.error);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    distributeEvenly(response.data || []);
     setIsLoadingMore(false);
   }
 
@@ -311,7 +383,7 @@ const Discover = () => {
     const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
     const isCloseToBottom =
       layoutMeasurement.height + contentOffset.y >= contentSize.height - 200;
-    if (isCloseToBottom && !isLoadingMore && !isLoadingInitial) {
+    if (isCloseToBottom && !isLoadingMore && !isLoadingInitial && !error) {
       loadMoreData();
     }
   };
@@ -324,7 +396,6 @@ const Discover = () => {
 
   const saveUserCategories = async (categories: typeof ALL_CATEGORIES) => {
     try {
-      // Always ensure 'For You' is the first category before saving
       const forYouCategory = ALL_CATEGORIES.find((c) => c.title === "For You");
       const filteredCategories = categories.filter(
         (c) => c.title !== "For You"
@@ -356,18 +427,14 @@ const Discover = () => {
         const forYouCategory = ALL_CATEGORIES.find(
           (c) => c.title === "For You"
         );
-        // Ensure "For You" is always the first item
         if (forYouCategory && parsedCategories[0]?.title !== "For You") {
           parsedCategories = parsedCategories.filter(
             (c: any) => c.title !== "For You"
           );
           parsedCategories.unshift(forYouCategory);
-        } else if (!forYouCategory) {
-          // Fallback if 'For You' is not in ALL_CATEGORIES
         }
         setUserCategories(parsedCategories);
       } else {
-        // Save the default categories if none exist
         const defaultCategories = ALL_CATEGORIES.slice(0, 5);
         await saveUserCategories(defaultCategories);
         setUserCategories(defaultCategories);
@@ -384,17 +451,11 @@ const Discover = () => {
   const toggleCategorySelection = (category: (typeof ALL_CATEGORIES)[0]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const isAlreadySelected = userCategories.some((c) => c.id === category.id);
-
     if (category.title === "For You") {
-      // "For You" can't be unselected, so do nothing
       return;
     }
-
     if (isAlreadySelected) {
-      // Prevent unselecting if it would drop the count below 4
       if (userCategories.length <= 4) {
-        // Optionally provide some feedback to the user
-        // alert("You must have at least 4 categories selected.");
         return;
       }
       const updatedCategories = userCategories.filter(
@@ -447,7 +508,6 @@ const Discover = () => {
             </Text>
           </Pressable>
         ))}
-        {/* Add Category Button */}
         <Pressable
           style={({ pressed }) => [
             styles.chip,
@@ -479,17 +539,14 @@ const Discover = () => {
               {ALL_CATEGORIES.map((category) => (
                 <Pressable
                   key={category.id}
-                  // Disable press for "For You" in the modal
                   onPress={() => toggleCategorySelection(category)}
                   style={({ pressed }) => [
                     styles.modalChip,
                     userCategories.some((c) => c.id === category.id) &&
                       styles.modalChipSelected,
                     pressed && styles.pressedChip,
-                    // Style to indicate a non-removable chip
                     category.title === "For You" && styles.fixedChip,
                   ]}
-                  // Disable the pressable component for "For You"
                   disabled={
                     category.title === "For You" && userCategories.length === 1
                   }
@@ -528,14 +585,31 @@ const Discover = () => {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
       >
-        {isLoadingInitial ? (
+        {/* NEW: Render error feedback */}
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable
+              onPress={() =>
+                loadInitialData(userCategories[0]?.title || "For You")
+              }
+              style={styles.tryAgainButton}
+            >
+              <Text style={styles.tryAgainText}>Try Again</Text>
+            </Pressable>
+          </View>
+        ) : isLoadingInitial ? (
           <SkeletonLoader />
         ) : (
           <View style={styles.container}>
             {columns.map((col, i) => (
               <View key={i} style={styles.column}>
                 {col.map((article) => (
-                  <ArticleItem key={article.id} article={article} />
+                  <ArticleItem
+                    key={article.id}
+                    article={article}
+                    onBookmarkCallback={handleBookmarkFeedback}
+                  />
                 ))}
               </View>
             ))}
@@ -548,6 +622,27 @@ const Discover = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* NEW: Bookmark feedback UI */}
+      {showFeedback && (
+        <Animated.View
+          style={[
+            styles.feedbackContainer,
+            {
+              transform: [
+                {
+                  translateY: feedbackAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [100, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.feedbackText}>{feedbackMessage}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 };
@@ -555,7 +650,7 @@ const Discover = () => {
 export default Discover;
 
 const styles = StyleSheet.create({
-  // --- Chiplist styles
+  // --- Existing styles...
   chiplistContainer: {
     flexDirection: "row",
     paddingHorizontal: 15,
@@ -601,7 +696,6 @@ const styles = StyleSheet.create({
   activeChipText: {
     color: "#fff",
   },
-  // --- Article styles
   container: {
     flexDirection: "row",
     paddingHorizontal: 5,
@@ -649,7 +743,6 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 5,
   },
-  // --- Skeleton styles
   skeletonContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -678,12 +771,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 4,
   },
-  // --- Loader styles
   loaderContainer: {
     padding: 15,
     alignItems: "center",
   },
-  // --- Modal styles
   modalContainer: {
     flex: 1,
     justifyContent: "center",
@@ -755,5 +846,42 @@ const styles = StyleSheet.create({
   },
   fixedChipText: {
     fontWeight: "normal",
+  },
+  // NEW STYLES for error and feedback
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 300,
+    padding: 15,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#e74c3c",
+    marginBottom: 15,
+  },
+  tryAgainButton: {
+    backgroundColor: "black",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tryAgainText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  feedbackContainer: {
+    position: "absolute",
+    bottom: 15,
+    alignSelf: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  feedbackText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });

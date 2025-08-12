@@ -67,11 +67,6 @@ const MediaBlock = ({
           </View>
         )}
         <View style={styles.contentContainer}>
-          <View style={styles.textBlock}>
-            <Text style={styles.body} numberOfLines={4} ellipsizeMode="tail">
-              {article.body}
-            </Text>
-          </View>
           <View style={styles.footerContainer}>
             <Pressable
               onPress={handleOpen}
@@ -85,11 +80,16 @@ const MediaBlock = ({
             </Pressable>
             <Pressable onPress={onBookmarkPress} style={styles.bookmarkButton}>
               <Ionicons
-                name={isBookmarked ? "bookmark" : "bookmark-outline"}
+                name={isBookmarked ? "close" : "close-outline"}
                 size={20}
                 color={isBookmarked ? "black" : "black"}
               />
             </Pressable>
+          </View>
+          <View style={styles.textBlock}>
+            <Text style={styles.body} numberOfLines={4} ellipsizeMode="tail">
+              {article.body}
+            </Text>
           </View>
         </View>
       </Pressable>
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   textBlock: {
-    paddingBottom: 4,
+    paddingBottom: 5,
   },
   body: {
     fontSize: 12,
@@ -195,9 +195,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-    marginTop: "auto",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+    marginBottom: 5,
   },
   wikipediaLinkContainer: {
     flexDirection: "row",
