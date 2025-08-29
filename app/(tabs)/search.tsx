@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -12,6 +12,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { openInAppBrowser } from "@/components/Browser";
+
+// Import the new fetch service function
+import { fetchSearchResults, ISearchResult } from "@/services/fetch";
 
 // --- Constants
 const CATEGORIES = [
@@ -35,80 +38,13 @@ const CATEGORIES = [
   "Engineering",
 ];
 
-const WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php";
-
-// --- Fetching data from Wikipedia
-const FetchResults = async (query: string) => {
-  if (!query) return { data: [] };
-
-  try {
-    // Step 1: Use opensearch to get a list of titles and URLs.
-    const searchResponse = await fetch(
-      `${WIKIPEDIA_API_URL}?action=opensearch&search=${query}&limit=10&format=json&origin=*`
-    );
-
-    // ERROR HANDLING: Explicitly check for non-200 status codes.
-    if (!searchResponse.ok) {
-      throw new Error(`HTTP error! status: ${searchResponse.status}`);
-    }
-
-    const searchData = await searchResponse.json();
-    const titles = searchData[1] || [];
-    const links = searchData[3] || [];
-
-    if (titles.length === 0) {
-      return { data: [] };
-    }
-
-    // Step 2: Use the titles to get the introductory text for each page.
-    const titlesString = titles.join("|");
-    const queryResponse = await fetch(
-      `${WIKIPEDIA_API_URL}?action=query&prop=extracts&exlimit=10&exintro=1&explaintext=1&titles=${titlesString}&format=json&origin=*`
-    );
-
-    // ERROR HANDLING: Explicitly check for non-200 status codes.
-    if (!queryResponse.ok) {
-      throw new Error(`HTTP error! status: ${queryResponse.status}`);
-    }
-
-    const queryData = await queryResponse.json();
-
-    // ERROR HANDLING: Check for a valid data structure.
-    if (!queryData.query || !queryData.query.pages) {
-      throw new Error("Invalid API response format.");
-    }
-
-    const pages = queryData.query.pages;
-
-    // Step 3: Combine the results from both API calls.
-    const results = Object.values(pages).map((page: any) => {
-      const pageIndex = titles.indexOf(page.title);
-      const url = pageIndex !== -1 ? links[pageIndex] : null;
-
-      return {
-        title: page.title,
-        body: page.extract || "No introductory text available.",
-        url: url,
-      };
-    });
-
-    return { data: results };
-  } catch (error) {
-    console.error("Failed to fetch Wikipedia data:", error);
-    // Return a specific error message for UI display.
-    return {
-      error: "Failed to load data. Please check your network connection.",
-    };
-  }
-};
-
 // --- Article Result Component
 const ArticleResult = React.memo(
   ({
     article,
     onLinkPress,
   }: {
-    article: any;
+    article: ISearchResult;
     onLinkPress: (url: string) => void;
   }) => {
     const displayBody =
@@ -131,68 +67,64 @@ const ArticleResult = React.memo(
 // --- Main Search Component
 export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<ISearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  // NEW STATE: Store error messages here.
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<TextInput>(null);
 
-  const performSearch = useCallback(async (query: string) => {
-    setIsLoading(true);
-    setError(null); // Clear any previous errors
-    const response = await FetchResults(query);
+  const handleLinkPress = useCallback((url: string) => {
+    openInAppBrowser(url);
+  }, []);
 
+  // Performance Optimization: Debounce API calls with useEffect
+  useEffect(() => {
+    setResults([]);
+    setError(null);
+    setIsLoading(false);
+
+    if (searchQuery.length < 3) {
+      setIsSearching(false);
+      return;
+    }
+
+    setIsLoading(true);
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      const response = await fetchSearchResults(searchQuery);
+
+      if (response.error) {
+        setResults([]);
+        setError(response.error);
+      } else {
+        setResults(response.data || []);
+      }
+      setIsLoading(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSearchSubmit = useCallback(async (query: string) => {
+    Keyboard.dismiss();
+    setIsSearching(false);
+    setIsLoading(true);
+    const response = await fetchSearchResults(query);
     if (response.error) {
       setResults([]);
       setError(response.error);
     } else {
-      setResults(response.data);
+      setResults(response.data || []);
     }
     setIsLoading(false);
   }, []);
-
-  const debouncedSearch = useRef(
-    useCallback(
-      (query: string) => {
-        if (query.length > 2) {
-          setIsSearching(true);
-          performSearch(query);
-        } else {
-          setResults([]);
-          setIsLoading(false);
-          setIsSearching(false);
-          setError(null);
-        }
-      },
-      [performSearch]
-    )
-  ).current;
-
-  const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
-    debouncedSearch(text);
-  };
-
-  const handleSearchSubmit = useCallback(
-    async (query: string) => {
-      Keyboard.dismiss();
-      setIsSearching(false);
-      performSearch(query);
-    },
-    [performSearch]
-  );
 
   const handleItemPress = (item: string) => {
     setSearchQuery(item);
     handleSearchSubmit(item);
   };
 
-  const handleLinkPress = useCallback((url: string) => {
-    openInAppBrowser(url);
-  }, []);
-
-  // RENDER FUNCTION: Now includes logic for the error state.
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -201,8 +133,6 @@ export default function Search() {
         </View>
       );
     }
-
-    // NEW LOGIC: Show error message and a "Try Again" button.
     if (error) {
       return (
         <View style={styles.errorContainer}>
@@ -216,7 +146,6 @@ export default function Search() {
         </View>
       );
     }
-
     if (isSearching && results.length > 0) {
       return (
         <>
@@ -232,7 +161,6 @@ export default function Search() {
         </>
       );
     }
-
     if (results.length > 0) {
       return (
         <>
@@ -250,8 +178,6 @@ export default function Search() {
         </>
       );
     }
-
-    // NEW LOGIC: More user-friendly "no results" message.
     if (searchQuery.length > 2 && !isLoading && !isSearching) {
       return (
         <Text style={styles.noResultsText}>
@@ -259,7 +185,6 @@ export default function Search() {
         </Text>
       );
     }
-
     return (
       <>
         <Text style={styles.listHeader}>Categories</Text>
@@ -279,7 +204,7 @@ export default function Search() {
   };
 
   return (
-    <View style={styles.container}>
+    < >
       <View style={styles.searchFormContainer}>
         <View style={styles.searchInputWrapper}>
           <TextInput
@@ -288,7 +213,7 @@ export default function Search() {
             placeholder="What do you want to know?"
             placeholderTextColor="#888"
             value={searchQuery}
-            onChangeText={handleSearchChange}
+            onChangeText={setSearchQuery}
             onSubmitEditing={() => handleSearchSubmit(searchQuery)}
             clearButtonMode="while-editing"
           />
@@ -307,9 +232,10 @@ export default function Search() {
       >
         {renderContent()}
       </ScrollView>
-    </View>
+    </>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

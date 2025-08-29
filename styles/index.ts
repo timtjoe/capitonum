@@ -1,0 +1,238 @@
+import { ITEM_MARGIN } from "@/constants";
+import { StyleSheet } from "react-native";
+
+export const DiscoverStyles = StyleSheet.create({
+  // --- All styles remain the same
+  chiplistContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    paddingRight: 50,
+    gap: 8,
+    height: 50,
+  },
+  chip: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingTop: 3,
+    paddingBottom: 3,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 68,
+    borderWidth: 0.7,
+    borderColor: "#d5d5d5",
+  },
+  addButton: {
+    borderRadius: 50,
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activeChip: {
+    backgroundColor: "black",
+    borderColor: "black",
+  },
+  pressedChip: {
+    opacity: 0.75,
+  },
+  chipText: {
+    fontSize: 12,
+    color: "black",
+    fontWeight: "bold",
+    lineHeight: 25,
+    padding: 0,
+    paddingBottom: 4,
+  },
+  activeChipText: {
+    color: "#fff",
+  },
+  container: {
+    flexDirection: "row",
+    paddingHorizontal: 5,
+    marginVertical: 5,
+  },
+  column: {
+    flex: 1,
+    marginHorizontal: ITEM_MARGIN / 2,
+  },
+  article: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    overflow: "hidden",
+    minHeight: 250,
+    maxHeight: 290,
+    display: "flex",
+    flexDirection: "column",
+  },
+  cover: {
+    width: "100%",
+    maxHeight: 120,
+    overflow: "hidden",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  body: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "700",
+    padding: 6,
+    maxHeight: 130,
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 5,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+    height: 40,
+    marginTop: "auto",
+  },
+  iconButton: {
+    padding: 5,
+  },
+  skeletonContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+  },
+  skeletonItem: {
+    width: "48%",
+    height: 250,
+    backgroundColor: "#DADCE0",
+    borderRadius: 15,
+    marginBottom: ITEM_MARGIN,
+    overflow: "hidden",
+  },
+  skeletonImage: {
+    width: "100%",
+    height: 120,
+    backgroundColor: "#c9cacaff",
+  },
+  skeletonTextContainer: {
+    padding: 10,
+  },
+  skeletonText: {
+    height: 12,
+    backgroundColor: "#c9cacaff",
+    marginBottom: 8,
+    borderRadius: 4,
+  },
+  loaderContainer: {
+    padding: 15,
+    alignItems: "center",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    width: "85%",
+    maxHeight: "70%",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  modalCategoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  modalChip: {
+    backgroundColor: "#f0f0f0",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingTop: 3,
+    paddingBottom: 3,
+    margin: 5,
+    borderWidth: 0.7,
+    borderColor: "#d5d5d5",
+  },
+  modalChipSelected: {
+    backgroundColor: "black",
+  },
+  modalChipText: {
+    fontSize: 12,
+    color: "black",
+    fontWeight: "bold",
+    lineHeight: 25,
+  },
+  modalChipTextSelected: {
+    color: "#fff",
+  },
+  closeButton: {
+    backgroundColor: "black",
+    borderRadius: 17,
+    padding: 10,
+    marginTop: 30,
+    minWidth: "100%",
+    alignItems: "center",
+  },
+  closeButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  fixedChip: {
+    opacity: 0.5,
+  },
+  fixedChipText: {
+    fontWeight: "normal",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: 300,
+    padding: 15,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#e74c3c",
+    marginBottom: 15,
+  },
+  tryAgainButton: {
+    backgroundColor: "black",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tryAgainText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  feedbackContainer: {
+    position: "absolute",
+    bottom: 15,
+    alignSelf: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  feedbackText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+});
